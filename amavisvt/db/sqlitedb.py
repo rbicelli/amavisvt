@@ -10,7 +10,7 @@ from amavisvt.db.base import BaseDatabase
 
 logger = logging.getLogger(__name__)
 
-LATEST_SCHEMA_VERSION = 3
+LATEST_SCHEMA_VERSION = 4
 
 MIGRATIONS = (
     (), # version 0
@@ -32,6 +32,9 @@ MIGRATIONS = (
     ),
     (  # version 3
         "ALTER TABLE filenames ADD COLUMN chunks INTEGER DEFAULT NULL",
+    ),
+    ( # version 4 - API Key Expire Table
+	"CREATE TABLE  `api_keys` (`api_key` TEXT unique, `expired_on` TEXT DEFAULT NULL)",
     )
 )
 
@@ -314,3 +317,40 @@ class AmavisVTDatabase(BaseDatabase):
             cursor.execute('UPDATE filenames SET infected=1 WHERE sha256=? AND infected=0', (vtresponse.sha256, ))
             db.connection.commit()
             cursor.close()
+
+
+    def get_api_key(self):
+        """Returns the first available API key. 
+
+        :returns the api key or false if there is no more keys available"""
+        for api_key in self.config.apikey
+		with AutoDB(self.config.database_path) as db:
+		    cursor = db.connection.cursor()
+		    cursor.execute('SELECT api_key,expire_on FROM api_keys WHERE api_key = ?', (api_key, ))
+		    result = cursor.fetchone()
+		    db.connection.commit()
+		    cursor.close()
+
+		    if not result
+		        return api_key
+
+		    d1 = result[1]
+	    	    d2 = datetime.datetime.now()
+		    #24 hours are passed since key was disabled, so key is (hopefully) usable
+              if abs((d2 - d1).hours)>24                    		        
+                  return api_key
+		    
+	    return false
+
+     
+     def disable_api_key(self, api_key):
+        #Marks an API Key not usable.
+
+        with AutoDB(self.config.database_path) as db:
+            cursor = db.connection.cursor()
+            cursor.execute('REPLACE INTO table(api_key,expired_on) VALUES(?,?);', (api_key, datetime.datetime.now()))
+            db.connection.commit()
+            cursor.close()
+
+            if not result
+                return api_key       

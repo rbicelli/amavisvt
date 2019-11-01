@@ -53,6 +53,10 @@ class AmavisVTConfigurationParser(ConfigParser):
         return self.get('DEFAULT', 'api-key')
 
     @property
+    def apikeys(self):
+        return self.get('DEFAULT'). 'api-key').split(',')
+    
+    @property
     def socket_path(self):
         return self.get('daemon', 'socket-path')
 

@@ -489,7 +489,62 @@ class AmavisVT(object):
                     lambda r: '.' not in r.filename or r.filename.endswith('.')
         ]))
 
-    def check_vt(self, checksums):
+   def api_call_check(self, checksums)
+       api_key = ''; 
+       while api_key not False:  
+            try:
+                 api_key = self.database.get_api_key
+                 if api_key == False
+                    logger.info("No more API Keys Available")
+                    return false
+                 post_data['apikey'] = api_key
+                 response = requests.post(self.config.api_url, {
+                 'apikey': api_key,
+                 'resource': ', ' . join(checksums)
+                 }, timeout=float(self.config.timeout), headers={
+                 'User-Agent': 'amavisvt/%s (+https://ercpe.de/projects/amavisvt)' % VERSION
+                 })
+                 response.raise_for_status()
+                 
+                 if response.status_code == 204:
+                    #Mark api_key as not usable
+                    self.db.disable_api_key(apikey)
+                    logger.info("API-Limit exceeded, API Key disabled!")
+                 else:
+                    return response
+        
+        logger.info("No more API Keys available")
+        return false
+   
+   def api_call_report(self, files)
+       api_key = ''; 
+       while api_key not False:  
+            try:
+                 api_key = self.database.get_api_key
+                 if api_key == False
+                    logger.info("No more API Keys Available")
+                    return false
+                 response = requests.post(self.config.report_url, data={
+                                        'apikey': api_key,
+                                    },
+                                    files=files,
+                                    timeout=float(self.config.timeout),
+                                    headers={
+                                        'User-Agent': 'amavisvt/%s (+https://ercpe.de/projects/amavisvt)' % VERSION
+                                    })
+                 response.raise_for_status()
+                 
+                 if response.status_code == 204:
+                    #Mark api_key as not usable
+                    self.db.disable_api_key(apikey)
+                    logger.info("API-Limit exceeded, API Key disabled!")
+                 else:
+                    return response
+        
+        logger.info("No more API Keys available")
+        return false       
+
+   def check_vt(self, checksums):
         if self.config.pretend:
             logger.info("NOT sending requests to virustotal")
             return
@@ -518,15 +573,18 @@ class AmavisVT(object):
             send_checksums = sorted(list(set(raw_checksums + clean_hashes)))
             logger.debug("Sending %s checksums", len(send_checksums))
 
-            response = requests.post(self.config.api_url, {
+            #Call VT API for checksums           
+            response = self.api_call_check(send_checksums)
+            """response = requests.post(self.config.api_url, {
                 'apikey': self.config.apikey,
                 'resource': ', '.join(send_checksums)
             }, timeout=float(self.config.timeout), headers={
                 'User-Agent': 'amavisvt/%s (+https://ercpe.de/projects/amavisvt)' % VERSION
             })
-            response.raise_for_status()
-            if response.status_code == 204:
-                raise Exception("API-Limit exceeded!")
+            response.raise_for_status()"""
+            if response == False:
+                raise Exception("API-Limit exceeded and/or Api Keys Unavailable!")
+            
 
             responses = response.json()
             if not isinstance(responses, list):
@@ -568,7 +626,7 @@ class AmavisVT(object):
             files = {
                 'file': (resource.filename, open(resource.path, 'rb')),
             }
-            response = requests.post(self.config.report_url, data={
+            """response = requests.post(self.config.report_url, data={
                                         'apikey': self.config.apikey,
                                     },
                                     files=files,
@@ -579,7 +637,9 @@ class AmavisVT(object):
             response.raise_for_status()
             if response.status_code == 204:
                 raise Exception("API-Limit exceeded!")
-
+            """
+            #Call VT API for report
+            response = self.api_call_report(files)
             vtr = VTResponse(response.json())
             logger.info("Report result: %s", vtr)
             return vtr
