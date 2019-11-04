@@ -489,58 +489,56 @@ class AmavisVT(object):
                     lambda r: '.' not in r.filename or r.filename.endswith('.')
         ]))
 
-   def api_call_check(self, checksums)
-       api_key = ''; 
+    def api_call_check(self, checksums):
+       api_key = '' 
        for api_key in self.config.apikeys:  
-            try:
-                 use_api_key = self.get_from_cache("api_key_" . api_key)
-                 if use_api_key is None
-                    post_data['apikey'] = api_key
-                    response = requests.post(self.config.api_url, {
-                         'apikey': api_key,
-                         'resource': ', ' . join(checksums)
-                         }, timeout=float(self.config.timeout), headers={
-                         'User-Agent': 'amavisvt/%s (+https://ercpe.de/projects/amavisvt)' % VERSION
-                         })
-                    response.raise_for_status()
-                 
-                    if response.status_code == 204:
-                         #Mark api_key as not usable
-                         self.set_in_cache("api_key" . api_key, "expired", 86400)
-                         logger.info("API-Limit exceeded, API Key disabled!")
-                    else:
-                         return response
-        
-        logger.info("No more API Keys available")
-        return false
-   
-   def api_call_report(self, files)
-       api_key = ''; 
-       for api_keys in self.config.apikeys:  
-            try:
-                 use_api_key = self.get_from_cache("api_key_" . api_key)
-                 if use_api_key is None
-                    response = requests.post(self.config.report_url, data={
-                         'apikey': api_key,
-                         },
-                         files=files,
-                         timeout=float(self.config.timeout),
-                         headers={
+           use_api_key = self.get_from_cache("api_key_" . api_key)
+           if use_api_key is None:
+               post_data['apikey'] = api_key
+               response = requests.post(self.config.api_url, {
+                'apikey': api_key,
+                              'resource': ', ' . join(checksums)
+                              }, timeout=float(self.config.timeout), headers={
                               'User-Agent': 'amavisvt/%s (+https://ercpe.de/projects/amavisvt)' % VERSION
                               })
-                    response.raise_for_status()
-                 
-                    if response.status_code == 204:
-                         #Mark api_key as not usable
-                         self.set_in_cache("api_key" . api_key, "expired", 86400)
-                         logger.info("API-Limit exceeded, API Key disabled!")
-                    else:
-                         return response
+               response.raise_for_status()
+                    
+               if response.status_code == 204:
+                   #Mark api_key as not usable for 60 seconds
+                   self.set_in_cache("api_key_" . api_key, "expired", 60)
+                   logger.info("API-Limit exceeded, API Key disabled!")
+               else:
+                   return response
         
-        logger.info("No more API Keys available")
-        return false       
+       logger.info("No more API Keys available")
+       return false
+   
+    def api_call_report(self, files):
+       api_key = ''; 
+       for api_keys in self.config.apikeys:  
+            use_api_key = self.get_from_cache("api_key_" . api_key)
+            if use_api_key is None:
+               response = requests.post(self.config.report_url, data={
+                    'apikey': api_key,
+                     },
+                     files=files,
+                     timeout=float(self.config.timeout),
+                     headers={
+                              'User-Agent': 'amavisvt/%s (+https://ercpe.de/projects/amavisvt)' % VERSION
+                         })
+               response.raise_for_status()
+                 
+               if response.status_code == 204:
+                    #Mark api_key as not usable for 60 seconds
+                    self.set_in_cache("api_key_" . api_key, "expired", 60)
+                    logger.info("API-Limit exceeded, API Key disabled!")
+               else:
+                    return response
+        
+       logger.info("No more API Keys available")
+       return false       
 
-   def check_vt(self, checksums):
+    def check_vt(self, checksums):
         if self.config.pretend:
             logger.info("NOT sending requests to virustotal")
             return
