@@ -490,11 +490,9 @@ class AmavisVT(object):
         ]))
 
     def api_call_check(self, checksums):
-       api_key = '' 
        for api_key in self.config.apikeys:  
-           use_api_key = self.get_from_cache("api_key_" . api_key)
-           if use_api_key is None:
-               post_data['apikey'] = api_key
+           use_api_key = self.memcached.get(api_key)
+           if not use_api_key:
                response = requests.post(self.config.api_url, {
                 'apikey': api_key,
                               'resource': ', ' . join(checksums)
@@ -502,22 +500,20 @@ class AmavisVT(object):
                               'User-Agent': 'amavisvt/%s (+https://ercpe.de/projects/amavisvt)' % VERSION
                               })
                response.raise_for_status()
-                    
                if response.status_code == 204:
                    #Mark api_key as not usable for 60 seconds
-                   self.set_in_cache("api_key_" . api_key, "expired", 60)
+                   self.memcached.set(api_key, "expired", 60)
                    logger.info("API-Limit exceeded, API Key disabled!")
                else:
                    return response
-        
+       
        logger.info("No more API Keys available")
-       return false
+       return False
    
     def api_call_report(self, files):
-       api_key = ''; 
-       for api_keys in self.config.apikeys:  
-            use_api_key = self.get_from_cache("api_key_" . api_key)
-            if use_api_key is None:
+       for api_key in self.config.apikeys:  
+            use_api_key = self.memcached.get(api_key)
+            if not use_api_key:
                response = requests.post(self.config.report_url, data={
                     'apikey': api_key,
                      },
@@ -530,13 +526,13 @@ class AmavisVT(object):
                  
                if response.status_code == 204:
                     #Mark api_key as not usable for 60 seconds
-                    self.set_in_cache("api_key_" . api_key, "expired", 60)
+                    self.memcached.set(api_key, "expired", 60)
                     logger.info("API-Limit exceeded, API Key disabled!")
                else:
                     return response
         
        logger.info("No more API Keys available")
-       return false       
+       return False       
 
     def check_vt(self, checksums):
         if self.config.pretend:
@@ -610,8 +606,8 @@ class AmavisVT(object):
             logger.exception("Error asking virustotal about files")
 
     def report_to_vt(self, resource):
-        if self.config.pretend:
-            logger.info("NOT sending resource to virustotal")
+        if self.config.pretend or self.config.do_not_report:
+            logger.info("NOT reporting resource to virustotal")
             return
 
         try:

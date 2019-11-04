@@ -101,6 +101,10 @@ class AmavisVTConfigurationParser(ConfigParser):
         return (self.get('DEFAULT', 'pretend') or "false").lower() == "true"
 
     @property
+    def do_not_report(self):
+        return (self.get('DEFAULT', 'do-not-report') or "false").lower() == "true"
+
+    @property
     def database_path(self):
         return self.get('DEFAULT', 'database-path')
 
